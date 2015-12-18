@@ -1,33 +1,17 @@
 
-// TODO Qiita APIのタグ一覧に切り替え
-var TAGS = [
-  'Android',
-  'CSS',
-  'C++',
-  'Git',
-  'GitHub',
-  'HTML',
-  'HTML5',
-  'iOs',
-  'iPhone',
-  'Java',
-  'JavaScript',
-  'jQuery',
-  'Linux',
-  'Mac',
-  'Objective-C',
-  'PHP',
-  'Python',
-  'Qiita',
-  'Ruby',
-  'Vim',
-];
+var ROW_KEYS = ['created_at', 'title', 'user', 'tags', 'url'];
+var MAX_ROWS = 3000;
 
-var ROW_KEYS = ['published', 'title', 'author', 'url'];
-var MAX_ROWS = 2000;
+// 最新記事取得をするためのページ数と、ページごとの取得件数
+var PAGE = 1;
+var PER_PAGE = 100;
 
-var TAG_URL = 'http://qiita.com/tags/${TAG_ID}/feed';
-var ATOM = XmlService.getNamespace('http://www.w3.org/2005/Atom');
+var BASE_URL = 'https://qiita.com/api/v2/';
+var URLS = {
+  ITEMS: BASE_URL + 'items'
+};
+
+var TOKEN = '';
 
 function updateArticleOfRanking() {
   main.updateArticleOfRanking();
@@ -61,18 +45,20 @@ var main = {
 
     range.clear();
 
-    // タグごとのURLリストの生成
-    var urls = [];
-    for (var i = 0; i < TAGS.length; i++) {
-      var url = TAG_URL.replace(/\$\{TAG_ID\}/, TAGS[i]);
-      urls.push(url);
+    // 最新記事を取得する
+    var rows = [];
+    for (var i = 0; i < PAGE; i++) {
+      var _rows = this._fetchLatestArticles({
+        page: i + 1,
+        per_page: PER_PAGE,
+      });
+      rows = rows.concat(_rows);
     }
 
-    var rows = parser.execute(urls);
     rows = rows.concat(oldRows);
 
     rows = utils.alignNumberOf2DArrays(rows);
-    rows = utils.sort2DArrays(rows, ROW_KEYS.indexOf('published'));
+    rows = utils.sort2DArrays(rows, ROW_KEYS.indexOf('created_at'));
     rows = utils.filter2DArrays(rows, ROW_KEYS.indexOf('url'));
 
     rows = rows.slice(0, MAX_ROWS);
@@ -80,43 +66,50 @@ var main = {
     // シートを新たな値で更新する
     var range = sheet.getRange(1, 1, rows.length, rows[0].length);
     range.setValues(rows);
-  }
+  },
 
-};
+  _fetchLatestArticles: function(option) {
+    var page = option.page || 1;
+    var per_page = option.per_page || 100;
 
-var parser = {
+    var url = URLS.ITEMS + '?page=' + page + '&per_page=' + per_page;
 
-  execute: function(urls) {
-    urls = is.string(urls) ? [urls] : urls;
+    var res = UrlFetchApp.fetch(url).getContentText();
+    res = JSON.parse('{"key":' + res + '}').key;
 
-    var rows = [];
-    for (var i = 0; i < urls.length; i++) {
-      var xml = UrlFetchApp.fetch(urls[i]).getContentText();
-      var doc = XmlService.parse(xml);
-      var root = doc.getRootElement();
-      var entries = doc.getRootElement().getChildren('entry', ATOM);
+    var articles = [];
+    for (var i = 0; i < res.length; i++) {
+      var r = res[i];
+      var article = articles[i] = [];
 
-      for (var j = 0; j < entries.length; j++) {
-        var values = {
-          url      : entries[j].getChild('url', ATOM).getText(),
-          title    : entries[j].getChild('title', ATOM).getText(),
-          published: entries[j].getChild('published', ATOM).getText(),
-        };
-        values.author = values.url.split('/')[3];
-
-        var row = [];
-        for (var k = 0; k < ROW_KEYS.length; k++) {
-          var key = ROW_KEYS[k];
-          row.push(values[key]);
-        }
-        rows.push(row)
+      for (var j = 0; j < ROW_KEYS.length; j++) {
+        var key = ROW_KEYS[j];
+        var value = r[key];
+        article.push(parse(key, value));
       }
     }
 
-    return rows;
-  }
-};
+    return articles;
 
+    function parse(key, value) {
+      if (key === 'user') {
+        return value.id;
+      }
+
+      if (key === 'tags') {
+        var tags = [];
+        for (var i = 0; i < value.length; i++) {
+          tags.push(value[i].name);
+        }
+        return tags.join(',');
+      }
+
+      return value;
+    }
+
+  }
+
+};
 
 var utils = {
 
