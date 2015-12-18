@@ -43,7 +43,8 @@ var main = {
     var range = sheet.getDataRange();
     var oldRows = range.getValues();
 
-    range.clear();
+    // デバッグ用
+    // range.clear();
 
     // 最新記事を取得する
     var rows = [];
