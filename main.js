@@ -122,7 +122,7 @@ var main = {
 
     // GoogleAppScriptの最大時間を考慮して、一度に100件ずつストック数を取得する
     var stocks = [];
-    for (var i = rowNum; i < rowNum + 5; i++) {
+    for (var i = rowNum; i < rowNum + 100; i++) {
       var a = articles[i];
       if (!a) {
         break;
