@@ -1,5 +1,6 @@
 
-var ROW_KEYS = ['created_at', 'title', 'user', 'tags', 'url'];
+var ARTICLES_ROW_KEYS = ['created_at', 'title', 'user', 'tags', 'url'];
+var STOCKS_ROW_KEYS   = ['url', 'stock_count'];
 var MAX_ROWS = 3000;
 
 // 最新記事取得をするためのページ数と、ページごとの取得件数
@@ -17,6 +18,10 @@ function updateArticleOfRanking() {
   main.updateArticleOfRanking();
 }
 
+function exportStockCounts() {
+  main.exportStockCounts();
+}
+
 function exportLatestArticles() {
   main.exportLatestArticles();
 }
@@ -27,7 +32,120 @@ var main = {
    * Qiitaのランキングの記事を更新する
    */
   updateArticleOfRanking: function() {
+    var now = new Date();
 
+    // シートを取得する
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName("articles");
+
+    // シートの値を取得する
+    var range = sheet.getDataRange();
+    var articles = range.getValues();
+
+    // 記事のストック数を取得する
+    for (var i = 0; i < articles.length; i++) {
+    //for (var i = 0; i < 3; i++) {
+      var article = articles[i];
+      var url = article[ARTICLES_ROW_KEYS.indexOf('url')];
+      var stockCount = this._fetchStockCount(url);
+      article.push(stockCount);
+    }
+
+
+    // 期間ごとの記事を抽出する
+    var rows = sliceArticlesInTerm(1, articles);
+
+    // ランキング順にソート
+    rows = utils.sort2DArrays(rows, articles[0].length - 1);
+
+    // いい感じにmarkdownで表現
+    var sheet = ss.getSheets()[1];
+    var range = sheet.getRange(1, 1, rows.length, rows[0].length);
+    range.setValues(rows);
+
+
+    function sliceArticlesInTerm(days, articles) {
+      var term = new Date(now.getTime());
+      term.setDate(term.getDate() - days);
+
+      for (var i = 0; i < articles.length; i++) {
+        var article = articles[i];
+        var created_at = article[ARTICLES_ROW_KEYS.indexOf('created_at')];
+
+        // Google App Scriptのフォーマットに統一する
+        var date = new Date(created_at + '.508Z');
+        date.setHours(date.getHours() - 9);
+
+        if (date.getTime() < term.getTime()) {
+          break;
+        }
+      }
+
+      return articles.slice(0, i);
+    }
+
+
+
+  },
+
+  /**
+   * 記事ごとのストック数をシートに出力する。
+   * AppScriptの起動最大時間があるため、一定数ずつ更新していく。
+   */
+  exportStockCounts: function() {
+    // シートを取得する
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    var sheet = ss.getSheetByName("articles");
+    var articles = sheet.getDataRange().getValues();
+
+    var sheet = ss.getSheetByName("stocks");
+    var oldStocks = sheet.getDataRange().getValues();
+
+    // 一行目が最新の取得した結果であるため、その続きから取得するためにindexを保持する
+    var latestFetchingUrl = oldStocks[0][STOCKS_ROW_KEYS.indexOf('url')];
+    var rowNum = 0;
+    if (latestFetchingUrl) {
+      for (var rowNum = 0; rowNum < articles.length; rowNum++) {
+        var a = articles[rowNum];
+        if (a[ARTICLES_ROW_KEYS.indexOf('url')] === latestFetchingUrl) {
+          rowNum++;
+          break;
+        }
+      }
+    }
+
+    // 最後まで取得していた場合は最初から取得する
+    if (articles.length <= rowNum) {
+      rowNum = 0;
+    }
+
+    // GoogleAppScriptの最大時間を考慮して、一度に100件ずつストック数を取得する
+    var stocks = [];
+    for (var i = rowNum; i < rowNum + 5; i++) {
+      var a = articles[i];
+      if (!a) {
+        break;
+      }
+
+      var url = a[ARTICLES_ROW_KEYS.indexOf('url')];
+      var stockCount = this._fetchStockCount(url);
+
+      var s = [];
+      s[STOCKS_ROW_KEYS.indexOf('url')] = url;
+      s[STOCKS_ROW_KEYS.indexOf('stock_count')] = stockCount || 0;
+      stocks.push(s);
+    }
+    stocks.reverse();
+
+    stocks = stocks.concat(oldStocks);
+    stocks = stocks.slice(0, MAX_ROWS);
+
+    stocks = utils.alignNumberOf2DArrays(stocks);
+
+    // シートを新たな値で更新する
+    var range = sheet.getRange(1, 1, stocks.length, stocks[0].length);
+    range.setValues(stocks);
   },
 
 
@@ -37,7 +155,7 @@ var main = {
   exportLatestArticles: function() {
     // シートを取得する
     var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = ss.getSheets()[0];
+    var sheet = ss.getSheetByName("articles");
 
     // シートの値を取得する
     var range = sheet.getDataRange();
@@ -59,8 +177,8 @@ var main = {
     rows = rows.concat(oldRows);
 
     rows = utils.alignNumberOf2DArrays(rows);
-    rows = utils.sort2DArrays(rows, ROW_KEYS.indexOf('created_at'));
-    rows = utils.filter2DArrays(rows, ROW_KEYS.indexOf('url'));
+    rows = utils.sort2DArrays(rows, ARTICLES_ROW_KEYS.indexOf('created_at'));
+    rows = utils.filter2DArrays(rows, ARTICLES_ROW_KEYS.indexOf('url'));
 
     rows = rows.slice(0, MAX_ROWS);
 
@@ -83,8 +201,8 @@ var main = {
       var r = res[i];
       var article = articles[i] = [];
 
-      for (var j = 0; j < ROW_KEYS.length; j++) {
-        var key = ROW_KEYS[j];
+      for (var j = 0; j < ARTICLES_ROW_KEYS.length; j++) {
+        var key = ARTICLES_ROW_KEYS[j];
         var value = r[key];
         article.push(parse(key, value));
       }
@@ -97,6 +215,10 @@ var main = {
         return value.id;
       }
 
+      if (key === 'created_at') {
+        return value.split('+')[0];
+      }
+
       if (key === 'tags') {
         var tags = [];
         for (var i = 0; i < value.length; i++) {
@@ -105,9 +227,18 @@ var main = {
         return tags.join(',');
       }
 
-      return value;
+      return value || '';
     }
 
+  },
+
+  _fetchStockCount: function(url) {
+    var res = UrlFetchApp.fetch(url).getContentText();
+    var stockCount = res
+      .match(/js\-stocksCount\"\>\d+/)[0]
+      .match(/\d+/)[0];
+
+    return parseInt(stockCount);
   }
 
 };
