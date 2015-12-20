@@ -64,6 +64,12 @@ var main = {
     range.setValues(rows);
 
 
+    /**
+     * 期間内に作成された記事のみを抽出する
+     * @param {number} days - 範囲としたい日数
+     * @param {Array[]} articles - 記事リスト
+     * @return {Array[]} 期間内の記事リスト
+     */
     function sliceArticlesInTerm(days, articles) {
       var term = new Date(now.getTime());
       term.setDate(term.getDate() - days);
@@ -187,6 +193,13 @@ var main = {
     range.setValues(rows);
   },
 
+  /**
+   * 最新記事を取得する。
+   * @param {Object} [option]
+   * @param {number} [option.page] - 取得したいページ数
+   * @param {number} [option.per_page] - 一度に取得するページごとの件数
+   * @return {Array[]} 記事リスト
+   */
   _fetchLatestArticles: function(option) {
     var page = option.page || 1;
     var per_page = option.per_page || 100;
@@ -210,6 +223,12 @@ var main = {
 
     return articles;
 
+    /**
+     * Qiita Apiで取得した記事を保持したい内容に変換する
+     * @param {string} key
+     * @param {string} value
+     * @return {string} 変換後の値
+     */
     function parse(key, value) {
       if (key === 'user') {
         return value.id;
@@ -232,6 +251,11 @@ var main = {
 
   },
 
+  /**
+   * Qiitaの記事からストック数を取得する
+   * @param {string} url - 記事のURL
+   * @return {number} ストック数
+   */
   _fetchStockCount: function(url) {
     var res = UrlFetchApp.fetch(url).getContentText();
     var stockCount = res
@@ -247,8 +271,8 @@ var utils = {
 
   /**
    * ２次元配列を指定されたカラムの値から降順でソートする。
-   * @param {Sheet} arrays - 対象となる２次元配列
-   * @param {Number} columnNum - 列数
+   * @param {sheet} arrays - 対象となる２次元配列
+   * @param {number} columnNum - 列数
    */
   sort2DArrays: function(arrays, columnNum) {
     arrays.sort(function(a, b) {
@@ -265,8 +289,8 @@ var utils = {
 
   /**
    * ２次元配列から、指定されたカラムの値が重複していない二次元配列を抽出する。
-   * @param {Sheet} arrays - 対象となる２次元配列
-   * @param {Number} columnNum - 列数
+   * @param {sheet} arrays - 対象となる２次元配列
+   * @param {number} columnNum - 列数
    */
   filter2DArrays: function(arrays, columnNum) {
     var _arrays = [];
@@ -286,7 +310,7 @@ var utils = {
 
   /**
    * ２次元配列の要素数を最大に揃える
-   * @param {Sheet} arrays - 対象となる２次元配列
+   * @param {sheet} arrays - 対象となる２次元配列
    */
   alignNumberOf2DArrays: function(arrays) {
     var maxLength = 0;
@@ -303,8 +327,6 @@ var utils = {
     }
     return arrays;
   }
-
-
 };
 
 var is = {
