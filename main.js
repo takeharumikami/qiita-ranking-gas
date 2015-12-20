@@ -2,6 +2,7 @@
 var ARTICLES_ROW_KEYS = ['created_at', 'title', 'user', 'tags', 'url'];
 var STOCKS_ROW_KEYS   = ['url', 'stock_count'];
 var MAX_ROWS = 3000;
+var RANKING_MAX_ROWS = 20;
 
 // 最新記事取得をするためのページ数と、ページごとの取得件数
 var PAGE = 1;
@@ -27,72 +28,6 @@ function exportLatestArticles() {
 }
 
 var main = {
-
-  /**
-   * Qiitaのランキングの記事を更新する
-   */
-  updateArticleOfRanking: function() {
-    var now = new Date();
-
-    // シートを取得する
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = ss.getSheetByName("articles");
-
-    // シートの値を取得する
-    var range = sheet.getDataRange();
-    var articles = range.getValues();
-
-    // 記事のストック数を取得する
-    for (var i = 0; i < articles.length; i++) {
-    //for (var i = 0; i < 3; i++) {
-      var article = articles[i];
-      var url = article[ARTICLES_ROW_KEYS.indexOf('url')];
-      var stockCount = this._fetchStockCount(url);
-      article.push(stockCount);
-    }
-
-
-    // 期間ごとの記事を抽出する
-    var rows = sliceArticlesInTerm(1, articles);
-
-    // ランキング順にソート
-    rows = utils.sort2DArrays(rows, articles[0].length - 1);
-
-    // いい感じにmarkdownで表現
-    var sheet = ss.getSheets()[1];
-    var range = sheet.getRange(1, 1, rows.length, rows[0].length);
-    range.setValues(rows);
-
-
-    /**
-     * 期間内に作成された記事のみを抽出する
-     * @param {number} days - 範囲としたい日数
-     * @param {Array[]} articles - 記事リスト
-     * @return {Array[]} 期間内の記事リスト
-     */
-    function sliceArticlesInTerm(days, articles) {
-      var term = new Date(now.getTime());
-      term.setDate(term.getDate() - days);
-
-      for (var i = 0; i < articles.length; i++) {
-        var article = articles[i];
-        var created_at = article[ARTICLES_ROW_KEYS.indexOf('created_at')];
-
-        // Google App Scriptのフォーマットに統一する
-        var date = new Date(created_at + '.508Z');
-        date.setHours(date.getHours() - 9);
-
-        if (date.getTime() < term.getTime()) {
-          break;
-        }
-      }
-
-      return articles.slice(0, i);
-    }
-
-
-
-  },
 
   /**
    * 記事ごとのストック数をシートに出力する。
@@ -194,6 +129,47 @@ var main = {
   },
 
   /**
+   * Qiitaのランキングの記事を更新する
+   */
+  updateArticleOfRanking: function() {
+    var now = new Date();
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    var sheet = ss.getSheetByName("articles");
+    var articles = sheet.getDataRange().getValues();
+
+    var sheet = ss.getSheetByName("stocks");
+    var stocks = sheet.getDataRange().getValues();
+
+    // ストック数とマージする
+    articles = this._mergeArticlesWithStocks(articles, stocks);
+
+    // TODO 汎用的に
+    // 期間ごとの記事リストを取得する
+    var dailyArticles = this._sliceArticlesInTerm(now, 2, articles);
+    var weeklyArticles = this._sliceArticlesInTerm(now, 7, articles);
+
+    // ランキング順にソート
+    dailyArticles = utils.sort2DArrays(dailyArticles, articles[0].length - 1);
+    weeklyArticles = utils.sort2DArrays(weeklyArticles, articles[0].length - 1);
+
+    dailyArticles = dailyArticles.slice(0, RANKING_MAX_ROWS);
+    weeklyArticles = weeklyArticles.slice(0, RANKING_MAX_ROWS);
+
+    // いい感じにmarkdownで表現
+    var sheet = ss.getSheetByName("ranking_daily");
+    var range = sheet.getRange(1, 1, dailyArticles.length, dailyArticles[0].length);
+    range.setValues(dailyArticles);
+
+    var sheet = ss.getSheetByName("ranking_weekly");
+    var range = sheet.getRange(1, 1, weeklyArticles.length, weeklyArticles[0].length);
+    range.setValues(weeklyArticles);
+
+  },
+
+
+  /**
    * 最新記事を取得する。
    * @param {Object} [option]
    * @param {number} [option.page] - 取得したいページ数
@@ -263,8 +239,61 @@ var main = {
       .match(/\d+/)[0];
 
     return parseInt(stockCount);
-  }
+  },
 
+  /**
+   * 期間内に作成された記事のみを抽出する
+   * @param {Date} now - 現在時刻のDateオブジェクト
+   * @param {number} days - 範囲としたい日数
+   * @param {Array[]} articles - 記事リスト
+   * @return {Array[]} 期間内の記事リスト
+   */
+  _sliceArticlesInTerm: function(now, days, articles) {
+    var term = new Date(now.getTime());
+    term.setDate(term.getDate() - days);
+
+    for (var i = 0; i < articles.length; i++) {
+      var article = articles[i];
+      var created_at = article[ARTICLES_ROW_KEYS.indexOf('created_at')];
+
+      // Google App Scriptのフォーマットに統一する
+      var date = new Date(created_at + '.508Z');
+      date.setHours(date.getHours() - 9);
+
+      if (date.getTime() < term.getTime()) {
+        break;
+      }
+    }
+
+    return articles.slice(0, i);
+  },
+
+  /**
+   * 記事にストック数をマージする
+   * @param {Array[]} articles - 記事リスト
+   * @param {Array[]} stocks - 記事に対するストック数のリスト
+   * @return {Array[]} ストック数が加えられた記事リスト
+   */
+  _mergeArticlesWithStocks: function(articles, stocks) {
+    // ストックとURLのマップに変換する
+    var _stocks = {};
+    for (var i = 0; i < stocks.length; i++) {
+      var s = stocks[i];
+
+      var url = s[STOCKS_ROW_KEYS.indexOf('url')];
+      var stockCount = s[STOCKS_ROW_KEYS.indexOf('stock_count')];
+      _stocks[url] = parseInt(stockCount);
+    }
+
+    for (var i = 0; i < articles.length; i++) {
+      var a = articles[i];
+
+      var url = a[ARTICLES_ROW_KEYS.indexOf('url')];
+      a.push(_stocks[url] || 0);
+    }
+
+    return articles;
+  }
 };
 
 var utils = {
