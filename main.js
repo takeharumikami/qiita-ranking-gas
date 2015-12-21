@@ -13,7 +13,12 @@ var URLS = {
   ITEMS: BASE_URL + 'items'
 };
 
-var TOKEN = '';
+var ARTICLE_ID = 'ba9b74a9df356a3a68aa';
+var TOKEN = ''
+
+function update() {
+  main._updateQiitaArticle();
+}
 
 function updateArticleOfRanking() {
   main.updateArticleOfRanking();
@@ -293,6 +298,42 @@ var main = {
     }
 
     return articles;
+  },
+
+  /**
+   * Qiitaの記事を更新する
+   */
+  _updateQiitaArticle: function(articles) {
+    var url = URLS.ITEMS;// + '/' + ARTICLE_ID;
+
+    var payload =
+    {
+      "body": "# Example",
+      "coediting": false,
+      "gist": false,
+      "private": false,
+      "tags": [
+        {
+          "name": "Ruby",
+          "versions": [
+            "0.0.1"
+          ]
+        }
+      ],
+      "title": "Example title",
+      "tweet": false
+    };
+
+    var options = {
+      "contentType": "application/json",
+      "method" : "POST",
+      "headers": {
+        "Authorization": "Bearer " + TOKEN
+      },
+      "payload" : payload
+    };
+
+   UrlFetchApp.fetch(url, options);
   }
 };
 
