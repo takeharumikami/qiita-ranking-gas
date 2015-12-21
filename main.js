@@ -238,7 +238,15 @@ var main = {
    * @return {number} ストック数
    */
   _fetchStockCount: function(url) {
-    var res = UrlFetchApp.fetch(url).getContentText();
+    var res = UrlFetchApp.fetch(url, {
+      muteHttpExceptions: true
+    }).getContentText();
+
+    // 記事が削除されている場合
+    if (!res.match(/js\-stocksCount\"\>\d+/)) {
+      return 0;
+    }
+
     var stockCount = res
       .match(/js\-stocksCount\"\>\d+/)[0]
       .match(/\d+/)[0];
