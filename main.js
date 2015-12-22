@@ -357,7 +357,6 @@ var main = {
     {
       'title': title,
       'body': body,
-      'private': true,
       'tags': [
         {
           'name': 'Qiita',
@@ -366,6 +365,7 @@ var main = {
           ]
         }
       ],
+      //'private': true,
     };
 
     var options = {
