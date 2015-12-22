@@ -1,4 +1,7 @@
 
+// var TOKEN = ''
+var ARTICLE_ID = 'b6db4bdeb2d3d71fd4e8';
+
 var ARTICLES_ROW_KEYS = ['created_at', 'title', 'user', 'tags', 'url'];
 var STOCKS_ROW_KEYS   = ['url', 'stock_count'];
 var MAX_ROWS = 3000;
@@ -12,13 +15,6 @@ var BASE_URL = 'https://qiita.com/api/v2/';
 var URLS = {
   ITEMS: BASE_URL + 'items'
 };
-
-var ARTICLE_ID = 'ba9b74a9df356a3a68aa';
-var TOKEN = ''
-
-function update() {
-  main._updateQiitaArticle();
-}
 
 function updateArticleOfRanking() {
   main.updateArticleOfRanking();
@@ -66,9 +62,9 @@ var main = {
       rowNum = 0;
     }
 
-    // GoogleAppScriptの最大時間を考慮して、一度に100件ずつストック数を取得する
+    // GoogleAppScriptの最大時間を考慮して、一度に50件ずつストック数を取得する
     var stocks = [];
-    for (var i = rowNum; i < rowNum + 100; i++) {
+    for (var i = rowNum; i < rowNum + 50; i++) {
       var a = articles[i];
       if (!a) {
         break;
@@ -150,7 +146,7 @@ var main = {
     // ストック数とマージする
     articles = this._mergeArticlesWithStocks(articles, stocks);
 
-    // TODO 汎用的に
+    // TODO デイリーとウィークリーを汎用的に
     // 期間ごとの記事リストを取得する
     var dailyArticles = this._sliceArticlesInTerm(now, 2, articles);
     var weeklyArticles = this._sliceArticlesInTerm(now, 7, articles);
@@ -162,7 +158,7 @@ var main = {
     dailyArticles = dailyArticles.slice(0, RANKING_MAX_ROWS);
     weeklyArticles = weeklyArticles.slice(0, RANKING_MAX_ROWS);
 
-    // いい感じにmarkdownで表現
+    // シートに結果を出力(テストのため)
     var sheet = ss.getSheetByName("ranking_daily");
     var range = sheet.getRange(1, 1, dailyArticles.length, dailyArticles[0].length);
     range.setValues(dailyArticles);
@@ -170,6 +166,10 @@ var main = {
     var sheet = ss.getSheetByName("ranking_weekly");
     var range = sheet.getRange(1, 1, weeklyArticles.length, weeklyArticles[0].length);
     range.setValues(weeklyArticles);
+
+    // QiitaAPIで記事を更新する
+    Logger.log(dailyArticles);
+    this._updateQiitaArticle(dailyArticles, weeklyArticles);
 
   },
 
@@ -311,34 +311,70 @@ var main = {
   /**
    * Qiitaの記事を更新する
    */
-  _updateQiitaArticle: function(articles) {
-    var url = URLS.ITEMS;// + '/' + ARTICLE_ID;
+  _updateQiitaArticle: function(dailyArticles, weeklyArticles) {
+    var url = URLS.ITEMS + '/' + ARTICLE_ID;
+
+    var title = '【毎日自動更新】Qiitaのデイリーストックランキング！ウィークリーもあるよ';
+    //var title = '【すぐ削除】QiitaAPIのテストです';
+
+    var body = '# この記事について\n\n';
+    body += 'この記事は「毎日自動更新」されます。(毎朝6時)ぜひストックやブクマをして定期的にみてみてくださいね。\n\n';
+    body += 'Twitterで更新をチェックしたい場合はこちら\n';
+    body += '[Twitter](https://twitter.com/takeharumikami)\n\n';
+
+    body += '# デイリーストックランキング\n\n';
+
+    var RANK = '#### ${rank}位';
+    var TITLE = ' [${title}](${url})';
+    var STOCK_COUNT = '(${stockCount}ストック)\n';
+    var USER = 'by ${user}\n';
+    // TODO 汎用的に
+    for (var i = 0; i < 10; i++) {
+      var a = dailyArticles[i];
+      body += RANK.replace(/\$\{rank\}/, (i + 1))
+      body += TITLE.replace(/\$\{title\}/, a[ARTICLES_ROW_KEYS.indexOf('title')])
+        .replace(/\$\{url\}/, a[ARTICLES_ROW_KEYS.indexOf('url')]);
+      body += STOCK_COUNT.replace(/\$\{stockCount\}/, a[a.length - 1]);
+      body += USER.replace(/\$\{user\}/, a[ARTICLES_ROW_KEYS.indexOf('user')]);
+    }
+
+    body += '# ウィークリーストックランキング\n\n';
+
+    for (var i = 0; i < 20; i++) {
+      var a = weeklyArticles[i];
+      body += RANK.replace(/\$\{rank\}/, (i + 1))
+      body += TITLE.replace(/\$\{title\}/, a[ARTICLES_ROW_KEYS.indexOf('title')])
+        .replace(/\$\{url\}/, a[ARTICLES_ROW_KEYS.indexOf('url')]);
+      body += STOCK_COUNT.replace(/\$\{stockCount\}/, a[a.length - 1]);
+    }
+
+
+    body += '\n\n※ バグがあればTwiiterでいただけると助かります。(コメントがたまると、このページ自体が重くなるので。。)\n';
+    body += 'Twitter: [@takeharumikami](https://twitter.com/takeharumikami)\n\n';
+
 
     var payload =
     {
-      "body": "# Example",
-      "coediting": false,
-      "gist": false,
-      "private": false,
-      "tags": [
+      'title': title,
+      'body': body,
+      'private': true,
+      'tags': [
         {
-          "name": "Ruby",
-          "versions": [
-            "0.0.1"
+          'name': 'Qiita',
+          'versions': [
+            '0.0.1'
           ]
         }
       ],
-      "title": "Example title",
-      "tweet": false
     };
 
     var options = {
-      "contentType": "application/json",
-      "method" : "POST",
-      "headers": {
-        "Authorization": "Bearer " + TOKEN
+      'contentType': 'application/json',
+      'method' : 'PATCH',
+      'headers': {
+        'Authorization': 'Bearer ' + TOKEN
       },
-      "payload" : payload
+      'payload' : JSON.stringify(payload)
     };
 
    UrlFetchApp.fetch(url, options);
