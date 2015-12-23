@@ -1,6 +1,9 @@
 
 // var TOKEN = ''
-var ARTICLE_ID = 'b6db4bdeb2d3d71fd4e8';
+var ARTICLE_ID = 'bb154a4bc198fb102ff3'
+
+// デバッグ用
+// var ARTICLE_ID = 'b6db4bdeb2d3d71fd4e8';
 
 var ARTICLES_ROW_KEYS = ['created_at', 'title', 'user', 'tags', 'url'];
 var STOCKS_ROW_KEYS   = ['url', 'stock_count'];
@@ -318,7 +321,7 @@ var main = {
     //var title = '【すぐ削除】QiitaAPIのテストです';
 
     var body = '# この記事について\n\n';
-    body += 'この記事は「毎日自動更新」されます。(毎朝6時)ぜひストックやブクマをして定期的にみてみてくださいね。\n\n';
+    body += 'この記事は「毎日自動更新」されます(毎朝6時)。ぜひ定期的に見てみてくださいね。';
     body += 'Twitterで更新をチェックしたい場合はこちら\n';
     body += '[Twitter](https://twitter.com/takeharumikami)\n\n';
 
