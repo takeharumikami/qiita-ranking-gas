@@ -6,7 +6,7 @@ var ARTICLE_ID = 'bb154a4bc198fb102ff3'
 // var ARTICLE_ID = 'b6db4bdeb2d3d71fd4e8';
 
 var ARTICLES_ROW_KEYS = ['created_at', 'title', 'user', 'tags', 'url'];
-var STOCKS_ROW_KEYS   = ['url', 'stock_count'];
+var STOCKS_ROW_KEYS   = ['url', 'stock_count', 'old_stock_count'];
 var MAX_ROWS = 3000;
 var RANKING_MAX_ROWS = 20;
 
@@ -47,6 +47,15 @@ var main = {
     var sheet = ss.getSheetByName("stocks");
     var oldStocks = sheet.getDataRange().getValues();
 
+    // 現在のurlに対するストック数をMapで保持する
+    var oldStockMap = {};
+    for (var i = 0; i < oldStocks.length; i++) {
+      var o = oldStocks[i] || {};
+      var url = o[STOCKS_ROW_KEYS.indexOf('url')];
+      var stockCount = o[STOCKS_ROW_KEYS.indexOf('stock_count')];
+      oldStockMap[url] = stockCount;
+    }
+
     // 一行目が最新の取得した結果であるため、その続きから取得するためにindexを保持する
     var latestFetchingUrl = oldStocks[0][STOCKS_ROW_KEYS.indexOf('url')];
     var rowNum = 0;
@@ -78,6 +87,7 @@ var main = {
 
       var s = [];
       s[STOCKS_ROW_KEYS.indexOf('url')] = url;
+      s[STOCKS_ROW_KEYS.indexOf('old_stock_count')] = oldStockMap[url] || 0;
       s[STOCKS_ROW_KEYS.indexOf('stock_count')] = stockCount || 0;
       stocks.push(s);
     }
