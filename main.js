@@ -181,7 +181,6 @@ var main = {
     range.setValues(weeklyArticles);
 
     // QiitaAPIで記事を更新する
-    Logger.log(dailyArticles);
     this._updateQiitaArticle(dailyArticles, weeklyArticles);
 
   },
@@ -333,7 +332,8 @@ var main = {
     var body = '# この記事について\n\n';
     body += 'この記事は「毎日自動更新」されます(毎朝6時)。ぜひ定期的に見てみてくださいね。';
     body += 'Twitterで更新をチェックしたい場合はこちら\n';
-    body += '[Twitter](https://twitter.com/takeharumikami)\n\n';
+    body += '[Twitter](https://twitter.com/takeharumikami)\n';
+    body += '※ ' + utils.today() + '更新\n\n';
 
     body += '# デイリーストックランキング\n\n';
 
@@ -453,6 +453,14 @@ var utils = {
       }
     }
     return arrays;
+  },
+
+  /**
+   * 本日の日付を'YYYY/MM/DD'の形式で取得する
+   * @return {string} 本日の日付
+   */
+  today: function() {
+    return Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyy/MM/dd");
   }
 };
 
