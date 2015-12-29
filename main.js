@@ -5,7 +5,7 @@ var ARTICLE_ID = 'bb154a4bc198fb102ff3'
 // var ARTICLE_ID = 'b6db4bdeb2d3d71fd4e8';
 
 var ARTICLES_ROW_KEYS = ['created_at', 'title', 'user', 'tags', 'url'];
-var STOCKS_ROW_KEYS   = ['url', 'stock_count', 'old_stock_count'];
+var STOCKS_ROW_KEYS   = ['title', 'url', 'stock_count', 'old_stock_count'];
 var MAX_ROWS = 3000;
 var RANKING_MAX_ROWS = 20;
 
@@ -37,6 +37,9 @@ var main = {
    * AppScriptの起動最大時間があるため、一定数ずつ更新していく。
    */
   exportStockCounts: function() {
+    // 一度に取得する記事数
+    var ARTICLES_COUNTS = 25;
+
     // シートを取得する
     var ss = SpreadsheetApp.getActiveSpreadsheet();
 
@@ -73,18 +76,20 @@ var main = {
       rowNum = 0;
     }
 
-    // GoogleAppScriptの最大時間を考慮して、一度に50件ずつストック数を取得する
+    // GoogleAppScriptの最大時間を考慮して、一定数ずつストック数を取得する
     var stocks = [];
-    for (var i = rowNum; i < rowNum + 50; i++) {
+    for (var i = rowNum; i < rowNum + ARTICLES_COUNTS; i++) {
       var a = articles[i];
       if (!a) {
         break;
       }
 
       var url = a[ARTICLES_ROW_KEYS.indexOf('url')];
+      var _title = a[ARTICLES_ROW_KEYS.indexOf('title')];
       var stockCount = this._fetchStockCount(url);
 
       var s = [];
+      s[STOCKS_ROW_KEYS.indexOf('title')] = _title;
       s[STOCKS_ROW_KEYS.indexOf('url')] = url;
       s[STOCKS_ROW_KEYS.indexOf('old_stock_count')] = oldStockMap[url] || 0;
       s[STOCKS_ROW_KEYS.indexOf('stock_count')] = stockCount || 0;
@@ -100,6 +105,9 @@ var main = {
     // シートを新たな値で更新する
     var range = sheet.getRange(1, 1, stocks.length, stocks[0].length);
     range.setValues(stocks);
+
+    // 今回取得した記事で、トレンドの記事をツイッターで更新する。
+    this._updateTwitter(stocks.slice(0, ARTICLES_COUNTS));
   },
 
 
@@ -182,6 +190,16 @@ var main = {
     // QiitaAPIで記事を更新する
     this._updateQiitaArticle(dailyArticles, weeklyArticles);
 
+  },
+
+  /**
+   * configシートからコンフィグを取得する
+   * @return {Object} コンフィグ
+   */
+  getConfigFromSheet: function() {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('config');
+    var rows = sheet.getDataRange().getValues();
+    return utils.parseJson(rows, 0, 1) || {};
   },
 
 
@@ -321,10 +339,12 @@ var main = {
 
   /**
    * Qiitaの記事を更新する
+   * @param {Array[]} dailyArticles - デイリーの記事リスト
+   * @param {Array[]} weeklyArticles - ウィークリーの記事リスト
    */
   _updateQiitaArticle: function(dailyArticles, weeklyArticles) {
     // Qiitaトークン取得
-    var config = this._getConfigFromSheet();
+    var config = this.getConfigFromSheet();
     var token = config.qiitaToken;
 
     var url = URLS.ITEMS + '/' + ARTICLE_ID;
@@ -397,14 +417,118 @@ var main = {
   },
 
   /**
-   * configシートからコンフィグを取得する
-   * @return {Object} コンフィグ
+   * トレンド記事をツイッターに更新する
+   * @param {Array[]} articles - stocksシートの記事リスト
    */
-  _getConfigFromSheet: function() {
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('config');
-    var rows = sheet.getDataRange().getValues();
-    return utils.parseJson(rows, 0, 1) || {};
+  _updateTwitter: function(articles) {
+    var TEXT = 'STOCKストック突破！ \nTITLE \nURL';
+    var PER = 50;
+
+    var trendArticles = [];
+    for (var i = 0; i < articles.length; i++) {
+      var a = articles[i];
+      var stockCount = parseInt(a[STOCKS_ROW_KEYS.indexOf('stock_count')] || 0);
+      var oldStockCount = parseInt(a[STOCKS_ROW_KEYS.indexOf('old_stock_count')] || 0);
+
+      if (Math.floor(stockCount / PER) <= Math.floor(oldStockCount / PER)) {
+        continue;
+      }
+
+      stockCount = PER * Math.floor(stockCount / PER);
+
+      text = TEXT.replace(/STOCK/g, stockCount)
+        .replace(/TITLE/g, a[STOCKS_ROW_KEYS.indexOf('title')])
+        .replace(/URL/g, a[STOCKS_ROW_KEYS.indexOf('url')]);
+
+      twitter.run(text);
+    }
+
   }
+};
+
+
+/**
+ * TwitterのOauthのコールバックを処理する
+ */
+function authCallbackByTwitter(request) {
+  var service = twitter.getService();
+  var authorized = service.handleCallback(request);
+  if (authorized) {
+    return HtmlService.createHtmlOutput('Success!');
+  } else {
+    return HtmlService.createHtmlOutput('Denied');
+  }
+}
+
+/**
+ * Googleのライブラリを使用した、Twitterクライアント
+ * https://github.com/googlesamples/apps-script-oauth1
+ */
+var twitter = {
+
+  _service: null,
+
+  /**
+   * twitterに投稿する。
+   * また、アプリが認証されていない場合は、認証する
+   * @param {string} text - 投稿内容のテキスト
+   */
+  run: function(text) {
+    var service = this.getService();
+
+    if (service.hasAccess()) {
+      var url = 'https://api.twitter.com/1.1/statuses/update.json';
+      var payload = {
+        status: text
+      };
+      var response = service.fetch(url, {
+        method: 'post',
+        payload: payload
+      });
+      var result = JSON.parse(response.getContentText());
+    } else {
+      var authorizationUrl = service.authorize();
+      Logger.log('このURLにアクセスしてTwitterのアプリとして許可をする : %s', authorizationUrl);
+    }
+  },
+
+  /**
+   * 認証をリセットする
+   */
+  reset: function() {
+    var service = this.getService();
+    service.reset();
+  },
+
+  /**
+   * サービスを構成する
+   */
+  getService: function() {
+    if (this._service) {
+      return this._service;
+    }
+
+    var config = main.getConfigFromSheet();
+    var consumerKey = config.twitterConsumerKey;
+    var consumerSecret = config.twitterConsumerSecret;
+
+    this._service = OAuth1.createService('Twitter')
+      .setAccessTokenUrl('https://api.twitter.com/oauth/access_token')
+      .setRequestTokenUrl('https://api.twitter.com/oauth/request_token')
+      .setAuthorizationUrl('https://api.twitter.com/oauth/authorize')
+
+      .setConsumerKey(consumerKey)
+      .setConsumerSecret(consumerSecret)
+
+      // コールバックの関数を指定する
+      .setCallbackFunction('authCallbackByTwitter')
+
+      // トークンは永続化するため、プロパティストアにセットする。
+      .setPropertyStore(PropertiesService.getUserProperties());
+
+    return this._service;
+  },
+
 };
 
 var utils = {
