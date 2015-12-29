@@ -1,5 +1,4 @@
 
-// var TOKEN = ''
 var ARTICLE_ID = 'bb154a4bc198fb102ff3'
 
 // デバッグ用
@@ -324,6 +323,10 @@ var main = {
    * Qiitaの記事を更新する
    */
   _updateQiitaArticle: function(dailyArticles, weeklyArticles) {
+    // Qiitaトークン取得
+    var config = this._getConfigFromSheet();
+    var token = config.qiitaToken;
+
     var url = URLS.ITEMS + '/' + ARTICLE_ID;
 
     var title = '【毎日自動更新】Qiitaのデイリーストックランキング！ウィークリーもあるよ';
@@ -385,12 +388,22 @@ var main = {
       'contentType': 'application/json',
       'method' : 'PATCH',
       'headers': {
-        'Authorization': 'Bearer ' + TOKEN
+        'Authorization': 'Bearer ' + token
       },
       'payload' : JSON.stringify(payload)
     };
 
    UrlFetchApp.fetch(url, options);
+  },
+
+  /**
+   * configシートからコンフィグを取得する
+   * @return {Object} コンフィグ
+   */
+  _getConfigFromSheet: function() {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('config');
+    var rows = sheet.getDataRange().getValues();
+    return utils.parseJson(rows, 0, 1) || {};
   }
 };
 
@@ -398,7 +411,7 @@ var utils = {
 
   /**
    * ２次元配列を指定されたカラムの値から降順でソートする。
-   * @param {sheet} arrays - 対象となる２次元配列
+   * @param {Array[]} arrays - 対象となる２次元配列
    * @param {number} columnNum - 列数
    */
   sort2DArrays: function(arrays, columnNum) {
@@ -416,7 +429,7 @@ var utils = {
 
   /**
    * ２次元配列から、指定されたカラムの値が重複していない二次元配列を抽出する。
-   * @param {sheet} arrays - 対象となる２次元配列
+   * @param {Array[]} arrays - 対象となる２次元配列
    * @param {number} columnNum - 列数
    */
   filter2DArrays: function(arrays, columnNum) {
@@ -437,7 +450,7 @@ var utils = {
 
   /**
    * ２次元配列の要素数を最大に揃える
-   * @param {sheet} arrays - 対象となる２次元配列
+   * @param {Array[]} arrays - 対象となる２次元配列
    */
   alignNumberOf2DArrays: function(arrays) {
     var maxLength = 0;
@@ -453,6 +466,24 @@ var utils = {
       }
     }
     return arrays;
+  },
+
+  /**
+   * 指定された列からJSONにパースする。
+   * @param {Array[]} arrays - 対象となる二次元配列
+   * @param {number} keyColumn - キーしたいカラムナンバー
+   * @param {number} valueColumn - 値にしたいカラムナンバー
+   * @return {Object} 抽出されたオブジェクト
+   */
+  parseJson: function(arrays, keyColumn, valueColumn) {
+    var o = {};
+    for (var i = 0; i < arrays.length; i++) {
+      var a = arrays[i] || [];
+      var key = a[keyColumn] || '';
+      var value = a[valueColumn] || '';
+      o[key] = value;
+    }
+    return o;
   },
 
   /**
