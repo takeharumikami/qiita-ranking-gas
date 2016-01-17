@@ -4,8 +4,8 @@ var ARTICLE_ID = 'bb154a4bc198fb102ff3'
 // デバッグ用
 // var ARTICLE_ID = 'b6db4bdeb2d3d71fd4e8';
 
-var ARTICLES_ROW_KEYS = ['created_at', 'title', 'user', 'tags', 'url'];
-var STOCKS_ROW_KEYS   = ['title', 'url', 'stock_count', 'old_stock_count'];
+var ARTICLES_ROW_KEYS = ['created_at', 'title', 'user:id', 'user:twitter_screen_name', 'tags', 'url'];
+var STOCKS_ROW_KEYS   = ['twitter_screen_name', 'title', 'url', 'stock_count', 'old_stock_count'];
 var MAX_ROWS = 3000;
 var RANKING_MAX_ROWS = 20;
 
@@ -84,11 +84,13 @@ var main = {
         break;
       }
 
+      var screen_name = a[ARTICLES_ROW_KEYS.indexOf('user:twitter_screen_name')];
       var url = a[ARTICLES_ROW_KEYS.indexOf('url')];
       var _title = a[ARTICLES_ROW_KEYS.indexOf('title')];
       var stockCount = this._fetchStockCount(url);
 
       var s = [];
+      s[STOCKS_ROW_KEYS.indexOf('twitter_screen_name')] = screen_name;
       s[STOCKS_ROW_KEYS.indexOf('title')] = _title;
       s[STOCKS_ROW_KEYS.indexOf('url')] = url;
       s[STOCKS_ROW_KEYS.indexOf('old_stock_count')] = oldStockMap[url] || 0;
@@ -225,9 +227,9 @@ var main = {
       var article = articles[i] = [];
 
       for (var j = 0; j < ARTICLES_ROW_KEYS.length; j++) {
-        var key = ARTICLES_ROW_KEYS[j];
-        var value = r[key];
-        article.push(parse(key, value));
+        var keys = ARTICLES_ROW_KEYS[j].split(':');
+        var value = r[keys[0]];
+        article.push(parse(keys, value));
       }
     }
 
@@ -235,13 +237,14 @@ var main = {
 
     /**
      * Qiita Apiで取得した記事を保持したい内容に変換する
-     * @param {string} key
+     * @param {string[]} keys - ':'でスプリットされたkey
      * @param {string} value
      * @return {string} 変換後の値
      */
-    function parse(key, value) {
+    function parse(keys, value) {
+      var key = keys[0];
       if (key === 'user') {
-        return value.id;
+        return value[keys[1]] || '';
       }
 
       if (key === 'created_at') {
@@ -421,7 +424,7 @@ var main = {
    * @param {Array[]} articles - stocksシートの記事リスト
    */
   _updateTwitter: function(articles) {
-    var TEXT = 'STOCKストック突破！ \nTITLE \nURL';
+    var TEXT = 'STOCKストック突破！ \nTITLE USER \nURL';
     var PER = 50;
 
     var trendArticles = [];
@@ -436,8 +439,12 @@ var main = {
 
       stockCount = PER * Math.floor(stockCount / PER);
 
+      var screenName = a[STOCKS_ROW_KEYS.indexOf('twitter_screen_name')];
+      var user = screenName ? ('\n@' + screenName) : '';
+
       text = TEXT.replace(/STOCK/g, stockCount)
         .replace(/TITLE/g, a[STOCKS_ROW_KEYS.indexOf('title')])
+        .replace(/USER/g, user)
         .replace(/URL/g, a[STOCKS_ROW_KEYS.indexOf('url')]);
 
       twitter.run(text);
