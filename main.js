@@ -5,7 +5,7 @@ var ARTICLE_ID = 'bb154a4bc198fb102ff3'
 // var ARTICLE_ID = 'b6db4bdeb2d3d71fd4e8';
 
 var ARTICLES_ROW_KEYS = ['created_at', 'title', 'user:id', 'user:twitter_screen_name', 'tags', 'url'];
-var STOCKS_ROW_KEYS   = ['twitter_screen_name', 'title', 'url', 'stock_count', 'old_stock_count'];
+var STOCKS_ROW_KEYS   = ['twitter_screen_name', 'title', 'url', 'stock_count', 'old_stock_count', 'created_at'];
 var MAX_ROWS = 3000;
 var RANKING_MAX_ROWS = 20;
 
@@ -84,17 +84,19 @@ var main = {
         break;
       }
 
-      var screen_name = a[ARTICLES_ROW_KEYS.indexOf('user:twitter_screen_name')];
+      var screenName = a[ARTICLES_ROW_KEYS.indexOf('user:twitter_screen_name')];
       var url = a[ARTICLES_ROW_KEYS.indexOf('url')];
       var _title = a[ARTICLES_ROW_KEYS.indexOf('title')];
       var stockCount = this._fetchStockCount(url);
+      var createdAt = a[ARTICLES_ROW_KEYS.indexOf('created_at')];
 
       var s = [];
-      s[STOCKS_ROW_KEYS.indexOf('twitter_screen_name')] = screen_name;
+      s[STOCKS_ROW_KEYS.indexOf('twitter_screen_name')] = screenName;
       s[STOCKS_ROW_KEYS.indexOf('title')] = _title;
       s[STOCKS_ROW_KEYS.indexOf('url')] = url;
       s[STOCKS_ROW_KEYS.indexOf('old_stock_count')] = oldStockMap[url] || 0;
       s[STOCKS_ROW_KEYS.indexOf('stock_count')] = stockCount || 0;
+      s[STOCKS_ROW_KEYS.indexOf('created_at')] = createdAt;
       stocks.push(s);
     }
     stocks.reverse();
