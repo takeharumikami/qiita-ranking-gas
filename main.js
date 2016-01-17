@@ -426,8 +426,11 @@ var main = {
    * @param {Array[]} articles - stocksシートの記事リスト
    */
   _updateTwitter: function(articles) {
-    var TEXT = 'STOCKストック突破！ \nTITLE USER \nURL';
     var PER = 50;
+    var NEW_TREND_DAYS = 1;
+    var NEW_TREND_STOCKS = 10;
+
+    var now = new Date();
 
     var trendArticles = [];
     for (var i = 0; i < articles.length; i++) {
@@ -435,21 +438,57 @@ var main = {
       var stockCount = parseInt(a[STOCKS_ROW_KEYS.indexOf('stock_count')] || 0);
       var oldStockCount = parseInt(a[STOCKS_ROW_KEYS.indexOf('old_stock_count')] || 0);
 
+      var screenName = a[STOCKS_ROW_KEYS.indexOf('twitter_screen_name')];
+      var user = screenName ? ('\n@' + screenName) : '';
+
+      var createdAt = a[STOCKS_ROW_KEYS.indexOf('created_at')];
+      createdAt = parseDate(createdAt);
+
+      var _isBetween = isBetween(oldStockCount, NEW_TREND_STOCKS, stockCount);
+      var _isTerm = (now.getTime() - createdAt.getTime()) < 1000 * 60 * 60 * 24 * NEW_TREND_DAYS;
+      if (_isBetween && _isTerm) {
+
+        var text = '急上昇な新着投稿 \nTITLE USER \nURL';
+        text = text.replace(/TITLE/g, a[STOCKS_ROW_KEYS.indexOf('title')])
+          .replace(/USER/g, user)
+          .replace(/URL/g, a[STOCKS_ROW_KEYS.indexOf('url')]);
+
+        twitter.run(text);
+
+        continue;
+      }
+
       if (Math.floor(stockCount / PER) <= Math.floor(oldStockCount / PER)) {
         continue;
       }
 
       stockCount = PER * Math.floor(stockCount / PER);
 
-      var screenName = a[STOCKS_ROW_KEYS.indexOf('twitter_screen_name')];
-      var user = screenName ? ('\n@' + screenName) : '';
-
-      text = TEXT.replace(/STOCK/g, stockCount)
+      var text = 'STOCKストック突破！ \nTITLE USER \nURL';
+      text = text.replace(/STOCK/g, stockCount)
         .replace(/TITLE/g, a[STOCKS_ROW_KEYS.indexOf('title')])
         .replace(/USER/g, user)
         .replace(/URL/g, a[STOCKS_ROW_KEYS.indexOf('url')]);
 
       twitter.run(text);
+    }
+
+    function isBetween(x, y, z) {
+      return x < y && y <= z;
+    }
+
+    function parseDate(dateString) {
+      // e.g. 1995-12-17T03:24:00+0900
+      var sp = dateString.split('T');
+
+      var year    = parseInt(sp[0].split('-')[0]);
+      var month   = parseInt(sp[0].split('-')[1]) - 1;
+      var day     = parseInt(sp[0].split('-')[2]);
+
+      var hours   = parseInt(sp[1].split(':')[0]);
+      var minutes = parseInt(sp[1].split(':')[1]);
+
+      return new Date(year, month, day, hours, minutes);
     }
 
   }
