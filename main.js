@@ -376,7 +376,7 @@ var main = {
       body += TITLE.replace(/\$\{title\}/, a[ARTICLES_ROW_KEYS.indexOf('title')])
         .replace(/\$\{url\}/, a[ARTICLES_ROW_KEYS.indexOf('url')]);
       body += STOCK_COUNT.replace(/\$\{stockCount\}/, a[a.length - 1]);
-      body += USER.replace(/\$\{user\}/, a[ARTICLES_ROW_KEYS.indexOf('user')]);
+      body += USER.replace(/\$\{user\}/, a[ARTICLES_ROW_KEYS.indexOf('user:id')]);
     }
 
     body += '# ウィークリーストックランキング\n\n';
