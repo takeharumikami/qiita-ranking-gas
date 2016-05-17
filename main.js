@@ -360,7 +360,7 @@ var main = {
     var body = '# この記事について\n\n';
     body += 'この記事は「毎日自動更新」されます(毎朝6時)。ぜひ定期的に見てみてくださいね。';
     body += 'Twitterで更新をチェックしたい場合はこちら\n';
-    body += '[Twitter](https://twitter.com/takeharumikami)\n';
+    body += '[Qiita新着トレンド](https://twitter.com/coderoid_)\n';
     body += '※ ' + utils.today() + '更新\n\n';
 
     body += '# デイリーストックランキング\n\n';
