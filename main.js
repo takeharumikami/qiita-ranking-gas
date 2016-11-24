@@ -1,4 +1,3 @@
-
 var ARTICLE_ID = 'bb154a4bc198fb102ff3'
 
 // デバッグ用
@@ -277,12 +276,12 @@ var main = {
     }).getContentText();
 
     // 記事が削除されている場合
-    if (!res.match(/js\-stocksCount\"\>\d+/)) {
+    if (!res.match(/js\-likecount\"\>\d+/)) {
       return 0;
     }
 
     var stockCount = res
-      .match(/js\-stocksCount\"\>\d+/)[0]
+      .match(/js\-likecount\"\>\d+/)[0]
       .match(/\d+/)[0];
 
     return parseInt(stockCount);
@@ -363,11 +362,11 @@ var main = {
     body += '[Qiita新着トレンド](https://twitter.com/coderoid_)\n';
     body += '※ ' + utils.today() + '更新\n\n';
 
-    body += '# デイリーストックランキング\n\n';
+    body += '# デイリーいいねランキング\n\n';
 
     var RANK = '#### ${rank}位';
     var TITLE = ' [${title}](${url})';
-    var STOCK_COUNT = '(${stockCount}ストック)\n';
+    var STOCK_COUNT = '(${stockCount}いいね)\n';
     var USER = 'by ${user}\n';
     // TODO 汎用的に
     for (var i = 0; i < 10; i++) {
@@ -379,7 +378,7 @@ var main = {
       body += USER.replace(/\$\{user\}/, a[ARTICLES_ROW_KEYS.indexOf('user:id')]);
     }
 
-    body += '# ウィークリーストックランキング\n\n';
+    body += '# ウィークリーいいねランキング\n\n';
 
     for (var i = 0; i < 20; i++) {
       var a = weeklyArticles[i];
@@ -464,7 +463,7 @@ var main = {
 
       stockCount = PER * Math.floor(stockCount / PER);
 
-      var text = 'STOCKストック突破！ \nTITLE USER \nURL';
+      var text = 'STOCKいいね突破！ \nTITLE USER \nURL';
       text = text.replace(/STOCK/g, stockCount)
         .replace(/TITLE/g, a[STOCKS_ROW_KEYS.indexOf('title')])
         .replace(/USER/g, user)
